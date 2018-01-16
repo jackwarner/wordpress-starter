@@ -22,3 +22,6 @@ wp-content/*
 /Dockerfile
 /docker-compose.yml
 test.sh
+
+# IntelliJ
+.idea

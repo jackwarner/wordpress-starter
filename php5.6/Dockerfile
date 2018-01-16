@@ -3,6 +3,12 @@ ENV TERM=xterm
 LABEL maintainer="Derek P Sifford <dereksifford@gmail.com>" \
       version="0.17.0-php5.6"
 
+# See https://github.com/docker-library/php/issues/120 for how the next coouple lines came to be
+# Purpose is to install the php5 imap extension
+RUN apt-get update && apt-get install -y libc-client-dev libkrb5-dev && rm -r /var/lib/apt/lists/*
+RUN docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+    && docker-php-ext-install imap
+
 # Install base requirements & sensible defaults + required PHP extensions
 RUN echo "deb http://ftp.debian.org/debian jessie-backports main" >> /etc/apt/sources.list \
     && apt-get update \

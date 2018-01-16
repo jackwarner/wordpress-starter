@@ -49,6 +49,13 @@ cd wordpress-starter/example
 
 # start the website at localhost:8080
 docker-compose up -d && docker-compose logs -f wordpress
+
+# stop the website
+docker-compose stop
+
+# ssh in to running wordpress site
+docker exec -it example_wordpress_1 /bin/bash
+(where example_wordpress_1 matches the services in your docker-compose.yml)
 ```
 
 **NOTE:** If you run on MacOS with Docker in VirtualBox, you will want to forward the port by
