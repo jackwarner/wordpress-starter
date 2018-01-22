@@ -71,6 +71,27 @@ class MailsterModelListGroups extends MailsterModel
 	}
 
 	/**
+   * Determine if a group already exists with exactly a relationship between the traveler email and owner email
+   */
+	function getRelationshipGroup($emails)
+  {
+    global $wpdb;
+    if (count($emails)) {
+      #SELECT count(*), gu.group_id FROM `wp_mailster_users` u LEFT JOIN `wp_mailster_group_users` gu on u.id = gu.user_id WHERE u.email in ('warner.jack2@gmail.com', 'jwarner_ags@yahoo.com')
+      $email_addresses = implode(',', $emails);
+      $query = 'SELECT COUNT(*), gu.group_id '
+        . ' FROM ' . $wpdb->prefix . 'mailster_users u '
+        . ' LEFT JOIN ' . $wpdb->prefix . 'mailster_group_users` gu on u.id = gu.user_id '
+        . ' WHERE u.email in ('.$email_addresses.')';
+      $lists = $this->_getList($query, 0, 0);
+      echo  "<pre>";
+      print_r($lists);
+      echo "</pre>";
+    }
+  }
+
+
+	/**
 	 * Method to get all groups that are not not in the list
 	 */
 	function getListsWithGroups($groupIds)

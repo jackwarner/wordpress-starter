@@ -35,3 +35,9 @@ example/app/wp-content/*
 
 example/app/wp-content/plugins/*
 !example/app/wp-content/plugins/wp-mailster
+
+example/app/wp-content/plugins/wp-mailster/log/mailster.log.php
+
+example/app/wp-content/plugins/wp-mailster/log/mailster.log.php
+
+example/app/wp-content/plugins/wp-mailster/log/mailster.log.php

@@ -12,6 +12,7 @@ if ( ! $lid ) {
 }
 
 
+
 if(isset($_POST['add_user']) && $_POST['add_user'] == 'add') {
 	$message = $this->wpmst_view_message("updated", __("New user added successfully.", 'wpmst-mailster'));
 }elseif(isset($_POST['add_user']) == 'edit') {
@@ -39,9 +40,82 @@ $ServerOut = new MailsterModelServer();
 $log = MstFactory::getLogger();
 $notifyUtils = MstFactory::getNotifyUtils();
 $log->debug('mst_mailing_list_add');
+
+
+if ($_GET['jack'] == 'hello') {
+  echo "oops";
+  $options['name'] = 'TestCode';
+  $options['list_mail'] = 'wpmailster@gmail.com';
+  $options['admin_mail'] = 'wpmailster@gmail.com';
+  $options['active'] = 1;
+  $options['front_archive_access'] = 0;
+  $options['server_inb_id'] = 3;
+  $options['mail_in_user'] = 'wpmailster@gmail.com';
+  $options['mail_in_pw'] = 'root';
+  $options['use_cms_mailer'] = 1;
+  $options['server_out_id'] = 0;
+  $options['subject_prefix'] = "";
+  $options['custom_header_plain'] = "{name} ({date}):";
+  $options['custom_footer_plain'] = "";
+  $options['clean_up_subject'] = 1;
+  $options['mail_format_conv'] = 0;
+  $options['disable_mail_footer'] = 0;
+  $options['mail_format_altbody'] = 1;
+  $options['custom_header_html'] = "
+{name} ({date}):
+";
+  $options['custom_footer_html'] = "";
+  $options['copy_to_sender'] = 1;
+  $options['mail_size_limit'] = 0;
+  $options['filter_mails'] = 0;
+  $options['allow_bulk_precedence'] = 0;
+  $options['sending_public'] = 1;
+  $options['sending_recipients'] = 0;
+  $options['sending_admin'] = 0;
+  $options['sending_group'] = 0;
+  $options['sending_group_id'] = 0;
+  $options['addressing_mode'] = 1;
+  $options['bcc_count'] = 10;
+  $options['incl_orig_headers'] = 0;
+  $options['mail_from_mode'] = 0;
+  $options['name_from_mode'] = 0;
+  $options['reply_to_sender'] = 0;
+  $options['bounce_mail'] = '';
+  $options['bounce_mode'] = 0;
+  $options['max_send_attempts'] = 5;
+  $options['save_send_reports'] = 7;
+  $options['allow_subscribe'] = 1;
+  $options['public_registration'] = 1;
+  $options['subscribe_mode'] = 0;
+  $options['welcome_msg'] = 1;
+  $options['welcome_msg_admin'] = 0;
+  $options['allow_unsubscribe'] = 1;
+  $options['unsubscribe_mode'] = 0;
+  $options['goodbye_msg'] = 1;
+  $options['goodbye_msg_admin'] = 0;
+  $options['allow_digests'] = 0;
+  $options['archive_mode'] = 0;
+  $options['notify_not_fwd_sender'] = 1;
+
+  $saved = $List->saveData($options);
+  if ( $saved == null ) { //unsuccessful save
+    $message = $this->wpmst_view_message("updated", __("Something went wrong, data not saved. Please try again", 'wpmst-mailster'));
+    echo "Failed!";
+  } else {
+    $message = $this->wpmst_view_message("updated", __("Mailing list saved successfully.", 'wpmst-mailster'));
+    $lid = $saved;
+    echo "Saved $saved";
+  }
+
+  echo "<pre>";
+  print_r($options);
+  echo "</pre>";
+  exit();
+}
+
 if( isset( $_POST['list_action'] ) ) { //if form is submitted
     $log->debug('mst_mailing_list_add -> list_action');
-	
+
 	if ( isset( $_POST['add_list'] ) ) {
         $log->debug('mst_mailing_list_add -> list_action -> add_list, post:');
         $log->debug(print_r($_POST, true));
@@ -56,7 +130,7 @@ if( isset( $_POST['list_action'] ) ) { //if form is submitted
         }else{
             $options['front_archive_access'] = 0;
         }
-		
+
 		//tab2
 		$log = MstFactory::getLogger();
 		$log->error("inb_edited: ".sanitize_text_field($_POST['inb_edited'])." server id: ".$_POST['server_inb_id']." server name: ".sanitize_text_field($_POST['server_name_in']) );
@@ -114,8 +188,8 @@ if( isset( $_POST['list_action'] ) ) { //if form is submitted
 		}
 		$options['mail_in_user'] = sanitize_text_field($_POST['mail_in_user']);
 		$options['mail_in_pw'] = sanitize_text_field($_POST['mail_in_pw']);
-		
-		//tab3		
+
+		//tab3
 		$options['use_cms_mailer'] = intval($_POST['use_cms_mailer']);
 
 		$server_options_out['server_type'] = MstConsts::SERVER_TYPE_SMTP;
@@ -148,7 +222,7 @@ if( isset( $_POST['list_action'] ) ) { //if form is submitted
 		$server_options_out['published'] = 1;
 		if ( ( isset($_POST['server_out_id']) && $_POST['server_out_id'] == 0 ) && $options['use_cms_mailer'] == 0 ) { //add a new server
 			$created = $ServerOut->saveData($server_options_out, 'add');
-			if($created) {				
+			if($created) {
 				$options['server_out_id'] = $ServerOut->getId();
 			} else {
 				$message .= __("There was an error while saving the outbox server. Please try again.", 'wpmst-mailster');
@@ -173,7 +247,7 @@ if( isset( $_POST['list_action'] ) ) { //if form is submitted
         if(substr($_POST['subject_prefix'], -1) == ' '){ // last character of subject prefix a space?
             $addWhitespace = true;
         }
-		
+
 		//tab4
         if(function_exists('sanitize_textarea_field')){
             $options['subject_prefix'] = sanitize_textarea_field($_POST['subject_prefix']); // sanitize but preserve white spaces
@@ -228,7 +302,7 @@ if( isset( $_POST['list_action'] ) ) { //if form is submitted
 		} else {
 			$options['sending_group_id'] = 0;
 		}
-		
+
 		//tab6
 		$options['addressing_mode'] = intval($_POST['addressing_mode']);
 		if( isset($_POST['bcc_count']) ) {
@@ -299,12 +373,18 @@ if( isset( $_POST['list_action'] ) ) { //if form is submitted
 
 		//tab9
 		$options['notify_not_fwd_sender'] = intval($_POST['notify_not_fwd_sender']);
-		
+
+
 		//save or update data
+
+    echo "<pre>";
+    print_r($options);
+    echo "</pre>";
+
 		$saved = $List->saveData($options, sanitize_text_field($_POST['add_list']));
 		if ( $saved == null ) { //unsuccessful save
 			$message = $this->wpmst_view_message("updated", __("Something went wrong, data not saved. Please try again", 'wpmst-mailster'));
-		} else { 
+		} else {
 			$message = $this->wpmst_view_message("updated", __("Mailing list saved successfully.", 'wpmst-mailster'));
 			$lid = $saved;
 		}
@@ -336,19 +416,19 @@ if( isset( $_POST['list_action'] ) ) { //if form is submitted
         }
 
 	}
-}	
+}
 $values = null;
 if($lid) {
 	$title = __("Edit Mailing List", 'wpmst-mailster');
 	$button = __('Update Mailing List', 'wpmst-mailster');
-	$action = 'edit'; 
+	$action = 'edit';
 //preload values
-	//$List->setId($lid);	
+	//$List->setId($lid);
 
 }
 $options = $List->getFormData();
 
-//load servers 
+//load servers
 if ( $lid ) {
 	$ServerIn->setId($options->server_inb_id);
 	$ServerOut->setId($options->server_out_id);
@@ -527,10 +607,10 @@ function removeTableRowWithRowNr(rowNr){
 					<li><a href="#notifications"><?php _e("Notifications", 'wpmst-mailster'); ?></a></li>
 					<li><a href="#tabs-10"><?php _e("Tools", 'wpmst-mailster'); ?></a></li>
 				</ul>
-				
+
 				<div id="mst_general" class="mst_listing mst_general">
 					<?php require_once($this->WPMST_PLUGIN_DIR.'view/list/tab1.php'); ?>
-				</div>		
+				</div>
 				<!-- inb server -->
 				<div id="mailbox_settings" class="mst_listing">
 					<?php require_once($this->WPMST_PLUGIN_DIR.'view/list/tab2.php'); ?>
@@ -548,12 +628,12 @@ function removeTableRowWithRowNr(rowNr){
 				<div id="list_behaviour" class="mst_listing">
 					<?php require_once($this->WPMST_PLUGIN_DIR.'view/list/tab5.php'); ?>
 				</div>
-				
+
 				<!-- sending behaviour -->
 				<div id="sending_behaviour" class="mst_listing">
 					<?php require_once($this->WPMST_PLUGIN_DIR.'view/list/tab6.php'); ?>
 				</div>
-				
+
 				<div id="subscribing" class="mst_listing">
 					<?php require_once($this->WPMST_PLUGIN_DIR.'view/list/tab7.php'); ?>
 				</div>
@@ -565,7 +645,7 @@ function removeTableRowWithRowNr(rowNr){
 				<div id="notifications" class="mst_listing">
 					<?php require_once($this->WPMST_PLUGIN_DIR.'view/list/tab9.php'); ?>
 				</div>
-				
+
 				<div id="tabs-10">
 					<?php require_once($this->WPMST_PLUGIN_DIR.'view/list/tab10.php'); ?>
 				</div>
@@ -574,7 +654,7 @@ function removeTableRowWithRowNr(rowNr){
 			<input type="hidden" name="add_list" value="<?php echo $action; ?>" />
 			<input type="hidden" name="lid" id="lid" value="<?php echo $lid; ?>" />
 			<input type="submit" class="button-primary" name="list_action" value="<?php echo $button; ?>">
-		</form>		
+		</form>
 	</div>
 </div>
 <script type="text/javascript">
@@ -589,7 +669,7 @@ jQuery(document).ready(function() {
             $targetTypesCleaned = $targetTypeOptionsHtml;
             $targetTypesCleaned = (string)str_replace(array("\r", "\r\n", "\n"), '', $targetTypesCleaned);
             $targetTypesCleaned = (string)str_replace(array("'"), "\'", $targetTypesCleaned);
-            
+
             $triggerTypesCleaned = $triggerTypeOptionsHtml;
             $triggerTypesCleaned = (string)str_replace(array("\r", "\r\n", "\n"), '', $triggerTypesCleaned);
             $triggerTypesCleaned = (string)str_replace(array("'"), "\'", $triggerTypesCleaned);
@@ -627,10 +707,10 @@ jQuery(document).ready(function() {
         var rowNr = (this.name).substr(selectNamePattern.length);
         targetTypeChanged(rowNr);
     });
-    
+
     jQuery(".notifierRemoverClass").click(function(event){
 		removeTableRow(event.target.id);
 	});
 });
-	
+
 </script>

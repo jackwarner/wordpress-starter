@@ -27,6 +27,79 @@ if($sid) {
 } else {
 	$Group = new MailsterModelGroup();
 }
+
+if ($_GET['jack'] == "hello") {
+  $email = 'jwarner_ags@yahoocom2';
+  if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    echo "$email is not valid";
+  }
+  # TODO - get emails from external input and make sure they are valid syntactically
+  $emails = array("warner.jack@gmail.com", "jwarner_ags@yahoo.com" );
+  $group_id = $Group->getRelationshipGroup($emails);
+  if (!empty($group_id)) {
+    echo "Group id is $group_id - nothing to be done";
+  }
+  else {
+    echo "we have work to do!";
+    $group_options[ 'name' ] = implode('+', $emails);
+    $Group->saveData( $group_options );
+    $sid = $Group->getId();
+    echo "Yay, group is $sid";
+    # Now let's check on users
+    $UserOne = new MailsterModelUser();
+    $firstUser = $UserOne->isDuplicateEntry($emails[0]);
+    $firstUserId = -1;
+    $firstUserCore = 0;
+    $secondUserId = -1;
+    $secondUserCore = 0;
+    if (empty($firstUser)) {
+      echo "need to create user $emails[0]";
+      $user_options['name'] = $emails[0];
+      $user_options['email'] = $emails[0];
+      $user_options['notes'] = 'created automatically from booking form';
+      $firstUser = $UserOne->saveData($user_options);
+      $firstUserId = $UserOne->getId();
+    }
+    else {
+      echo "first user exists:";
+      echo "<pre>";
+      print_r($firstUser);
+      echo "id is $firstUser->id";
+      $firstUserId = $firstUser->id;
+      $firstUserCore = $firstUser->is_core_user;
+      echo "</pre>";
+    }
+    $UserTwo = new MailsterModelUser();
+    $secondUser = $UserTwo->isDuplicateEntry($emails[1]);
+    if (empty($secondUser)) {
+      echo "need to create user $emails[1]";
+      $user_options['name'] = $emails[1];
+      $user_options['email'] = $emails[1];
+      $user_options['notes'] = 'created automatically from booking form';
+      $secondUser = $UserTwo->saveData($user_options);
+      $secondUserId = $UserTwo->getId();
+    }
+    else {
+      echo "second user exists:";
+      echo "<pre>";
+      print_r($secondUser);
+      echo "id is $secondUser->id";
+      $secondUserId = $secondUser->id;
+      $secondUserCore = $secondUser->is_core_user;
+      echo "</pre>";
+    }
+
+    $Group->emtpyUsers();
+    // both users exist, add them to the group!
+    $res = $Group->addUserById( $firstUserId, $firstUserCore );
+    $res = $Group->addUserById( $secondUserId, $secondUserCore );
+
+  }
+  exit();
+}
+
+
+
 if(isset($_POST['group_action']) && null !== $_POST['group_action'] ) { //if form is submitted
 	if ( isset( $_POST[ 'add_group' ] ) ) {
 		$addGroup = sanitize_text_field($_POST['add_group']);
@@ -34,7 +107,7 @@ if(isset($_POST['group_action']) && null !== $_POST['group_action'] ) { //if for
 			$group_options[ 'id' ] = intval($_POST[ 'sid' ]);
 		}
 		$group_options[ 'name' ] = sanitize_text_field($_POST[ 'group_name' ]);
-		
+
 		$Group->saveData( $group_options, $addGroup );
 		$sid = $Group->getId();
 
@@ -55,12 +128,12 @@ if(isset($_POST['group_action']) && null !== $_POST['group_action'] ) { //if for
 			}
 		}
 	}
-}	
+}
 $values = null;
 if($sid) {
 	$title = __("Edit Group", 'wpmst-mailster');
 	$button = __('Update Group', 'wpmst-mailster');
-	$action = 'edit'; 
+	$action = 'edit';
 }
 
 if( $sid ) {
@@ -71,7 +144,7 @@ if( $sid ) {
 	foreach($grp_list2 as $gk2=>$gv2){
 		$selected2[] = $gv2->user_id.'-'.$gv2->is_core_user;
 	}
-	
+
 	//get all users (wp and mailster)
 	$tm_list  = $User->getAllUsers();
 	//get all the group's users
@@ -103,7 +176,7 @@ $options = $Group->getFormData();
 
 			<?php if( $sid ) { ?>
 			<div class="ms2side__header"><?php __("Choose users to add to group",'wpmst-mailster'); ?></div>
-			<select name="searchable[]" id='searchable' multiple='multiple' >	
+			<select name="searchable[]" id='searchable' multiple='multiple' >
 			<?php
 			if( !empty( $tm_list ) ){
 				$index = 1;

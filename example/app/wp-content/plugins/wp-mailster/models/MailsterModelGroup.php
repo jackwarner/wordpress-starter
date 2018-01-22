@@ -5,12 +5,12 @@
 	 * WP Mailster is free software; you can redistribute it and/or
 	 * modify it under the terms of the GNU General Public License 2
 	 * as published by the Free Software Foundation.
-	 * 
+	 *
 	 * WP Mailster is distributed in the hope that it will be useful,
 	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	 * GNU General Public License for more details.
-	 * 
+	 *
 	 * You should have received a copy of the GNU General Public License
 	 * along with WP Mailster; if not, write to the Free Software
 	 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
@@ -30,7 +30,7 @@ class MailsterModelGroup extends MailsterModel
 	var $_data = null;
 	var $_total = null;
 
-	function __construct($id = null){			
+	function __construct($id = null){
 		parent::__construct((int)$id);
 		$this->_total = null;
 	}
@@ -48,7 +48,7 @@ class MailsterModelGroup extends MailsterModel
 		}
 		return true;
 	}
-	
+
 	public function getTable($type = 'mailster_groups', $prefix = '', $config = array()){
 		global $wpdb;
 		$table_name = $wpdb->prefix . "mailster_groups";
@@ -112,18 +112,18 @@ class MailsterModelGroup extends MailsterModel
 
 	public function addUserById($user_id, $iscore) {
 		global $wpdb;
-		$columns = $wpdb->insert( 
-			$wpdb->prefix.'mailster_group_users', 
-			array( 
-				'group_id' => $this->_id, 
+		$columns = $wpdb->insert(
+			$wpdb->prefix.'mailster_group_users',
+			array(
+				'group_id' => $this->_id,
 				'user_id' => $user_id,
 				'is_core_user' => $iscore
-			), 
-			array( 
-				'%d', 
-				'%d', 
-				'%d' 
-			) 
+			),
+			array(
+				'%d',
+				'%d',
+				'%d'
+			)
 		);
 		if ( $columns ) {
 			return true;
@@ -133,18 +133,18 @@ class MailsterModelGroup extends MailsterModel
 	}
 	public function addCoreUser($user_id) {
 		global $wpdb;
-		$columns = $wpdb->insert( 
-			$wpdb->prefix.'mailster_group_users', 
-			array( 
-				'group_id' => $this->_id, 
+		$columns = $wpdb->insert(
+			$wpdb->prefix.'mailster_group_users',
+			array(
+				'group_id' => $this->_id,
 				'user_id' => $user_id,
 				'is_core_user' => true
-			), 
-			array( 
-				'%d', 
-				'%d', 
-				'%s' 
-			) 
+			),
+			array(
+				'%d',
+				'%d',
+				'%s'
+			)
 		);
 		if ( $columns ) {
 			return true;
@@ -155,17 +155,17 @@ class MailsterModelGroup extends MailsterModel
 
 	public function removeUser( $user ) {
 		global $wpdb;
-		return $wpdb->delete( 
+		return $wpdb->delete(
 			$wpdb->prefix.'mailster_group_users',
-			array( 
-				'group_id' => $this->_id, 
+			array(
+				'group_id' => $this->_id,
 				'user_id' => $user->getId(),
 				'is_core_user' => $user->isCoreUser()
 			),
-			array( 
-				'%d', 
-				'%d', 
-				'%d' 
+			array(
+				'%d',
+				'%d',
+				'%d'
 			)
 		);
 	}
@@ -179,13 +179,13 @@ class MailsterModelGroup extends MailsterModel
 
 	public function emtpyUsers() {
 		global $wpdb;
-		return $wpdb->delete( 
+		return $wpdb->delete(
 			$wpdb->prefix.'mailster_group_users',
-			array( 
+			array(
 				'group_id' => $this->_id
 			),
-			array( 
-				'%d' 
+			array(
+				'%d'
 			)
 		);
 	}
@@ -222,6 +222,41 @@ class MailsterModelGroup extends MailsterModel
 
 		return $this->getData(); // auto-load object
 	}
+
+  /**
+   * Determine if a group already exists with exactly a relationship between the traveler email and owner email
+   */
+  function getRelationshipGroup($emails)
+  {
+    global $wpdb;
+    if (count($emails)) {
+      #SELECT count(*), gu.group_id FROM `wp_mailster_users` u LEFT JOIN `wp_mailster_group_users` gu on u.id = gu.user_id WHERE u.email in ('warner.jack2@gmail.com', 'jwarner_ags@yahoo.com')
+      foreach ($emails as $email) {
+        $email_addresses[] = "'" . $email . "'";
+      }
+      $email_addresses_for_sql = implode(',', $email_addresses);
+      $query = 'SELECT COUNT(*) my_count, gu.group_id '
+        . ' FROM ' . $wpdb->prefix . 'mailster_users u '
+        . ' LEFT JOIN ' . $wpdb->prefix . 'mailster_group_users gu on u.id = gu.user_id '
+        . ' WHERE u.email in ('.$email_addresses_for_sql.')';
+      $lists = $this->_getList($query, 0, 0);
+      echo  "<pre>";
+      print_r($lists);
+      echo "</pre>";
+      if (count($lists) > 0) {
+        if ($lists[0]->my_count >= 2) {
+          return $lists[0]->group_id;
+        }
+        else {
+          return null;
+        }
+      }
+      else {
+        echo "Need to create the list";
+      }
+    }
+    return null;
+  }
 
 	function getData($id=null)
 	{
