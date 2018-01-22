@@ -7,6 +7,7 @@ services:
       - 443:443
     volumes:
       - ./data:/data
+      - ./app:/app
     environment:
       DB_NAME: wordpress
       DB_PASS: root

@@ -25,3 +25,13 @@ test.sh
 
 # IntelliJ
 .idea
+
+# Only version mailster plugin because we want to make changes to it
+example/app/*
+!example/app/wp-content/
+
+example/app/wp-content/*
+!example/app/wp-content/plugins
+
+example/app/wp-content/plugins/*
+!example/app/wp-content/plugins/wp-mailster
