@@ -5,12 +5,12 @@
 	 * WP Mailster is free software; you can redistribute it and/or
 	 * modify it under the terms of the GNU General Public License 2
 	 * as published by the Free Software Foundation.
-	 * 
+	 *
 	 * WP Mailster is distributed in the hope that it will be useful,
 	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	 * GNU General Public License for more details.
-	 * 
+	 *
 	 * You should have received a copy of the GNU General Public License
 	 * along with WP Mailster; if not, write to the Free Software
 	 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
@@ -22,27 +22,29 @@ if (preg_match('#' . basename(__FILE__) . '#', $_SERVER['PHP_SELF'])) {
 }
 
 class MstMailQueue
-{		
+{
 	public static function saveAndEnqueueMail($mail, $mList){
 		$log = MstFactory::getLogger();
 		$mstConf 	= MstFactory::getConfig();
-		
+
 		$enqueuingStart = time();
-		
+
 		if(empty($mail->thread_id)){
 			$mail->thread_id = 0;
 		}
-		
+
 		$has_send_report = '0';
 		if($mList->save_send_reports > 0){
 			$has_send_report = '1';
 		}
-		
+
 		global $wpdb;
 
 		$errorMsg = '';
 		$result = false;
 		$wpdb->show_errors();
+
+
 
 		$query = ' INSERT'
 		         . ' INTO ' . $wpdb->prefix . 'mailster_mails'
@@ -85,7 +87,7 @@ class MstMailQueue
 		         . ' \'' .$wpdb->_real_escape($mail->orig_to_recips) . '\','
 		         . ' \'' .$wpdb->_real_escape($mail->orig_cc_recips) . '\','
 		         . ' \'' .$wpdb->_real_escape($mail->subject) . '\','
-		         . ' \'' .$wpdb->_real_escape($mail->body) . '\','
+		         . ' \'' .$wpdb->_real_escape($mail->body) . '\',' # clean stuff out
 		         . ' \'' .$wpdb->_real_escape($mail->html) . '\','
 		         . ' \'' .$wpdb->_real_escape($mail->has_attachments) . '\','
 		         . ' \'0\', \'0\','
@@ -103,12 +105,12 @@ class MstMailQueue
 				//error_log("problem when adding mail to the queue: error is " . print_r($wpdb->last_error, true) . " query " . $wpdb->last_query . " new id " . $wpdb->insert_id);
 				$log->error($wpdb->last_error . " " . $wpdb->last_query); //todo
 			endif;
-			
+
         } catch (Exception $e) {
             $errorMsg = 'Error No: ' . $e->getCode() . ', Message: ' . $e->getMessage();
         }
 		$mailId = $wpdb->insert_id;
-		
+
 		if( false === $result ) {
 			$log->error('Inserting of mail failed, ' . $errorMsg);
             $log->error('Email failed to be inserted was: '.print_r($mail, true));
@@ -116,24 +118,24 @@ class MstMailQueue
 			$log->info('Saved mail for enqueuing ' . $mail->subject . '  new id: ' . $mailId);
             $log->debug('Email saved was: '.print_r($mail, true));
 		}
-		
+
 		$mail->id = $mailId;
 		$mail->list_id = $mList->id;
-		
+
 		// ####### TRIGGER NEW EVENT #######
 		$mstEvents = MstFactory::getEvents();
 		$mstEvents->newMailingListMail($mail->id);
 		// #################################
-				
+
 		self::enqueueMail($mail, $mList);
 
 		$enqueuingEnd = time();
-		$log->debug('saveAndEnqueueMail - Time needed for enqueuing mail: ' . ($enqueuingEnd-$enqueuingStart));	
-		
+		$log->debug('saveAndEnqueueMail - Time needed for enqueuing mail: ' . ($enqueuingEnd-$enqueuingStart));
+
 		return $mailId;
 	}
-	
-	public static function resetMailAsUnblockedAndUnsent($mailId){		
+
+	public static function resetMailAsUnblockedAndUnsent($mailId){
 		global $wpdb;
 		$log = MstFactory::getLogger();
 		$log->debug('Resetting mail status of mail ' . $mailId . ' to unsent');
@@ -142,7 +144,7 @@ class MstMailQueue
 				. ' bounced_mail = \'0\','
 				. ' blocked_mail = \'0\','
 				. ' fwd_errors = \'0\','
-				. ' fwd_completed = \'0\''				
+				. ' fwd_completed = \'0\''
 				. ' WHERE id=\'' . $mailId . '\'';
 
         try {
@@ -155,22 +157,22 @@ class MstMailQueue
 			$log->error('Resetting of mail status failed');
 		}
 	}
-	
-	public static function enqueueMail($mail, $mList){	
-		global $wpdb;		
+
+	public static function enqueueMail($mail, $mList){
+		global $wpdb;
 		$log = MstFactory::getLogger();
 		$mstConf 		= MstFactory::getConfig();
 		$mstApp 		= MstFactory::getApplication();
 		$sender			= MstFactory::getMailSender();
 		$mstRecipients 	= MstFactory::getRecipients();
-		
+
 		$listId = $mList->id;
 		$mailId = $mail->id;
-		
+
 		$log->debug('Enqueue mail ' . $mailId . ' in list ' . $mailId);
-		
+
 		$recipients = $mstRecipients->getRecipients($listId);
-				
+
 		$fromName = $mail->from_name;
 		$fromEmail = $mail->from_email;
 
@@ -184,15 +186,15 @@ class MstMailQueue
 			$senderCopyEntry->is_core_user = -1; // ... set this to something that cannot be found - e.g. to avoid to send digests to sender
 			$recipients[] = $senderCopyEntry;
 		}
-				
+
 		$recipCount = count($recipients);
 		$recC =  MstFactory::getV()->getFtSetting(MstVersionMgmt::MST_FT_ID_REC);
-		
+
 		$log->info('Enqueuing recipients, count: ' . $recipCount);
-		
+
 		if($recipCount > $recC){
 			$sender->sendMail2ListAdmin($mList, __( 'Mailster Send Error - too many recipients', "wpmst-mailster" ), __( 'You are using an edition of Mailster which has a limitation in the number of recipients per mailing list. We strongly recommend to not use this edition with this amount of recipients, otherwise mails may be dropped. Consider to purchase an upgrade, more information:', "wpmst-mailster" )." <a href='http://www.wpmailster.com'>http://www.wpmailster.com</a>" );
-			$log->error('Too many recipients error,  recipCount: ' . $recipCount . ',  recC: ' . $recC);	
+			$log->error('Too many recipients error,  recipCount: ' . $recipCount . ',  recC: ' . $recC);
 		}
 
 		self::addMailInDigest2ArticleQueueIfApplicable($mail, $mList);
@@ -203,7 +205,7 @@ class MstMailQueue
 		$validRecipNr = -1;
 		for($i = 0; $i < $recipCount; $i++) {
 			$recipient = &$recipients[$i];
-			
+
 			$log->debug('#'.($i+1).': '.print_r($recipient, true));
 			$isValidRecip = self::isValidRecipient($mail, $recipient, $mList);
 			if($isValidRecip){
@@ -214,9 +216,9 @@ class MstMailQueue
 					self::enqueueDigestMailForRecipient($mail, $recipient, $mList);
 				}else{
 					$validRecipNr = $validRecipNr + 1; // increment recipient nr, first time bringing it to = 0
-					$log->debug('enqueueMail: Valid recipient ' . $recipient->email);	
+					$log->debug('enqueueMail: Valid recipient ' . $recipient->email);
 				    if($validRecipNr%$nrInsertsPerQuery == 0){	// if == 0 or can be divisible
-						if($validRecipNr > 0){				
+						if($validRecipNr > 0){
 							$result = $wpdb->get_results( $query );
 						}
 
@@ -240,10 +242,10 @@ class MstMailQueue
 					 $enqRecipCr++;
 				}
 			}else{
-				$log->debug('enqueueMail: Do not enqueue, no valid recipient: ' . $recipient->email);	
+				$log->debug('enqueueMail: Do not enqueue, no valid recipient: ' . $recipient->email);
 			}
-		}		
-		if($query != ''){			
+		}
+		if($query != ''){
 			// we have to execute once again as still one or more recipients are queued
 			$result = $wpdb->query( $query );
 		}
@@ -251,10 +253,10 @@ class MstMailQueue
 		$sendEvents = MstFactory::getSendEvents();
 		$sendEvents->newQueueMail($mailId, $enqRecipCr, $mail->size_in_bytes);
 		// #################################
-		
+
 		return $enqRecipCr;
 	}
-	
+
 	public static function addMailInDigest2ArticleQueueIfApplicable($mail, $mList){
 		$log = MstFactory::getLogger();
 		$log->debug('adding mail to digest');
@@ -273,7 +275,7 @@ class MstMailQueue
 		}
 		$log->debug('finished archiving');
 	}
-	
+
 	public static function isRecipientInToOrCcOrigHeaders($recipient, $origToRecips, $origCcRecips){
 		$log = MstFactory::getLogger();
 		foreach ($origToRecips As $origToRecip){
@@ -288,8 +290,8 @@ class MstMailQueue
 		}
 		return false;
 	}
-		
-	public static function isValidRecipient($mail, $recipient, $mList){ 
+
+	public static function isValidRecipient($mail, $recipient, $mList){
 		$log = MstFactory::getLogger();
 		$log->debug("FIX checking valid recipients");
 		$recipientIsSender = strtolower(trim($recipient->email)) === strtolower(trim($mail->from_email));
@@ -302,7 +304,7 @@ class MstMailQueue
 		}
 		$ccAndToAddressing = ($mList->reply_to_sender == 2 ? true : false);
 		$addressingValid = ( !$ccAndToAddressing || ( $ccAndToAddressing && !$isToRecipient) );
-		
+
 		$isRecipAmongOrigRecips = false;
 		if(($mList->addressing_mode == MstConsts::ADDRESSING_MODE_BCC) && ($mList->incl_orig_headers > 0)){
 			$mstUtils = MstFactory::getUtils();
@@ -312,13 +314,13 @@ class MstMailQueue
 			$log->debug('isValidRecipient -> BCC mode with include original headers -> checked whether '.$recipient->email . ' is among orig. TO/CC headers: '.($isRecipAmongOrigRecips ? 'yes':'no'));
 		}
 		$addressingValid = $addressingValid && !$isRecipAmongOrigRecips;
-		
+
 		$recipientValid = ($senderVsRecipientValid && $addressingValid);
 		if(!$recipientValid){
 			$log->debug('isValidRecipient -> recip ' . $recipient->email . ' INVALID'
-						. ' - Reason: senderVsRecipientValid: ' . ($senderVsRecipientValid ? 'yes' : 'no') 
+						. ' - Reason: senderVsRecipientValid: ' . ($senderVsRecipientValid ? 'yes' : 'no')
 						. ', addressingValid: ' . ($addressingValid ? 'yes' : 'no')
-						. ', ccAndToAddressing: ' . ($ccAndToAddressing ? 'yes' : 'no') 
+						. ', ccAndToAddressing: ' . ($ccAndToAddressing ? 'yes' : 'no')
 						. ', isToRecipient:  ' . ($isToRecipient ? 'yes' : 'no')
 						. ', recipientIsSender: ' . ($recipientIsSender ? 'yes' : 'no')
 						. ', copy2Sender: ' . ($copy2Sender ? 'yes' : 'no')
@@ -327,13 +329,13 @@ class MstMailQueue
 		}
 		return $recipientValid;
 	}
-	
+
 	public static function isDigestRecipient($recipient, $mList){
         /** @var MailsterModelDigest $digestModel */
 		$digestModel = MstFactory::getDigestModel();
 		return $digestModel->isUserDigestRecipientOfList($recipient->user_id, $recipient->is_core_user, $mList->id);
 	}
-	
+
 	public static function enqueueDigestMailForRecipient($mail, $recipient, $mList){
 		$log = MstFactory::getLogger();
         /** @var MailsterModelDigest $digestModel */
@@ -380,12 +382,12 @@ class MstMailQueue
 		}else{
 			$log->debug('enqueueDigestMail: Successfully saved digest queue entry');
 		}
-		return $result;		
-			
+		return $result;
+
 	}
-	
-	
-	
+
+
+
 	public static function saveNonQueueMail($mail, $mList, $blocked, $bounced, $filtered){
 		$log = MstFactory::getLogger();
 		// The blocked_mail field has the following coding:
@@ -431,7 +433,7 @@ class MstMailQueue
 		         . ' \'' .$wpdb->_real_escape($mail->orig_to_recips) . '\','
 		         . ' \'' .$wpdb->_real_escape($mail->orig_cc_recips) . '\','
 		         . ' \'' .$wpdb->_real_escape($mail->subject) . '\','
-		         . ' \'' .$wpdb->_real_escape($mail->body) . '\','
+		         . ' \'' .$wpdb->_real_escape($mail->body) . '\',' # change this!
 		         . ' \'' .$wpdb->_real_escape($mail->html) . '\','
 		         . ' \'' .$wpdb->_real_escape($mail->has_attachments) . '\','
 		         . ' \'0\', \'0\','
@@ -446,14 +448,14 @@ class MstMailQueue
         } catch (Exception $e) {
             $errorMsg = 'Error No: ' . $e->getCode() . ', Message: ' . $e->getMessage();
         }
-		$mail->id = $wpdb->insert_id; 
-		
+		$mail->id = $wpdb->insert_id;
+
 		if($mail->id < 1){
 			$log->error('saveNonQueueMail() Inserting of non-queue mail failed, ' . $errorMsg);
 		}else{
 			$log->info('saveNonQueueMail() Saved non-queue mail ' . $mail->subject . '  new id: ' . $mail->id);
-		}		
-				
+		}
+
 		// ####### TRIGGER NEW EVENT #######
 		$mstEvents = MstFactory::getEvents();
 		if($bounced){
@@ -469,27 +471,27 @@ class MstMailQueue
 			$mstEvents->newFilteredMail($mail->id);
 		}
 		// #################################
-		
-		
+
+
 		return $mail->id;
 	}
-	
+
 	public static function removeAllRecipientsOfMailFromQueue($mailId){
 		$log = MstFactory::getLogger();
 		$log->debug('removeAllRecipientsOfMailFromQueue: removing all queue entries of mail with id ' . $mailId);
-		global $wpdb;		
+		global $wpdb;
 		$query = 'DELETE FROM  ' . $wpdb->prefix . 'mailster_queued_mails'
 				. ' WHERE mail_id = \'' . $mailId . '\'';
-		$result	 = $wpdb->query($query);		
+		$result	 = $wpdb->query($query);
 	}
-	
+
 	public static function removeMailFromQueue($mailId, $email){
 		$log = MstFactory::getLogger();
 		$log->debug('removeMailFromQueue: removing mail with id ' . $mailId . ' and recipient: ' . $email);
-		global $wpdb;	
+		global $wpdb;
 		return $wpdb->delete(
 			$wpdb->prefix . 'mailster_queued_mails',
-			array( 
+			array(
 				'mail_id' => $mailId,
 				'email' => $email
 			),
@@ -508,41 +510,41 @@ class MstMailQueue
 
 	public static function removeAllMailsFromListFromQueue($listId){
 		$log = MstFactory::getLogger();
-		global $wpdb;		
+		global $wpdb;
 		$log->debug('removeAllMailsFromListFromQueue: removing all mails from mailing list: ' . $listId);
 		$mailsInQueue = self::getPendingMailsOfMailingList($listId);
 		for($i=0; $i<count($mailsInQueue); $i++){
 			$mail = &$mailsInQueue[$i];
 			/* $query = 'DELETE FROM  ' . $wpdb->prefix . 'mailster_queued_mails'
 					. ' WHERE mail_id = \'' . $mail->id . '\''; */
-			$wpdb->delete( 
+			$wpdb->delete(
 				$wpdb->prefix . 'mailster_queued_mails',
-				array( 
+				array(
 					'mail_id' => $mail->id
 				),
 				array( '%d' )
 			);
 		}
-		return true;	
+		return true;
 	}
-	
+
 	public static function removeDigestMailsFromQueue($digest){
 		$log = MstFactory::getLogger();
 		$log->debug('removeDigestMailsFromQueue: removing queue mails of digest with id ' . $digest->id . ' added before: ' . $digest->next_send_date);
 		global $wpdb;
-		$affRows = $wpdb->delete( 
+		$affRows = $wpdb->delete(
 			$wpdb->prefix . 'mailster_digest_queue',
-			array( 
+			array(
 				'digest_id' => $digest->id,
 				'digest_time' => $digest->next_send_date
 			),
 			array( '%d', "%s" )
 		);
-		
+
 		//$log->debug('removeDigestMailsFromQueue: query: '.$query);
 		$log->debug('removeDigestMailsFromQueue: affected rows when removing queue mails of digest with id ' . $digest->id . ' : '.$affRows.' rows');
 	}
-	
+
 	public static function getNumberOfQueueEntriesForMail($mailId){
 		$log = MstFactory::getLogger();
 		$log->debug('Get number of recipients for mail ' . $mailId . ' in queue');
@@ -552,7 +554,7 @@ class MstMailQueue
 		$recipients = $wpdb->get_results( $query );
 		return $wpdb->num_rows;
 	}
-	
+
 	public static function getNextRecipientsInQueue($mailId, $limit){
 		$log = MstFactory::getLogger();
 		$log->debug('getNextRecipientsInQueue Get ' . $limit . ' recipients from queue for mail ' . $mailId);
@@ -563,22 +565,22 @@ class MstMailQueue
 				. ' AND '
 					. ' ( (is_locked=\'0\') '
 						. ' OR ((is_locked=\'1\') AND (last_lock < DATE_SUB(NOW(), INTERVAL 3 MINUTE)) )'
-					. ' )' 
+					. ' )'
 				. $limitStr;
 		$recipients = $wpdb->get_results( $query );
 		$log->debug('getNextRecipientsInQueue Found ' . $wpdb->num_rows . ' recipients in queue for mail ' . $mailId);
-		
-		$lockedRecipients = array();		
+
+		$lockedRecipients = array();
 		for($i=0;$i<count($recipients);$i++){
 			$recip = $recipients[$i];
 			$recipCurr = self::getRecipientInfo($recip->mail_id, $recip->email); // get current info
 			$log->debug('Get current recipient info: '.print_r($recipCurr, true));
-			
+
 			if($recip->lock_id != $recipCurr->lock_id){
 				$log->debug('Lock ID changed - another instance worked with recipient, skip it');
 				continue;
 			}
-			
+
 			$log->debug('Will lock recipient of mail '.$recip->mail_id.' ('.$recip->email.'), lock ID to increment: '.$recip->lock_id);
 			self::lockRecipient($recip->mail_id, $recip->email);
 			$isLockOk = self::checkRecipientLock($recip->mail_id, $recip->email, ($recip->lock_id+1));
@@ -590,7 +592,7 @@ class MstMailQueue
 					$log->debug('Search for new recipient to lock...');
 					$query = 'SELECT * FROM ' . $wpdb->prefix . 'mailster_queued_mails' // don't include invalid locks as we have included already with above query
 							. ' WHERE mail_id=\'' . $mailId . '\' '
-							. ' AND is_locked=\'0\' '  
+							. ' AND is_locked=\'0\' '
 							. ' LIMIT 1';
 					$recipient = $wpdb->get_row( $query );
 					if($recipient){
@@ -605,7 +607,7 @@ class MstMailQueue
 						}
 					}else{ // no more recipients for this email in queue, so get out of this loop
 						$log->debug('No more recipient found');
-						$isLockOk = true; 
+						$isLockOk = true;
 						break; // just to be sure...
 					}
 				}
@@ -614,42 +616,42 @@ class MstMailQueue
 		$log->debug('Found and locked recipients: ' . count($lockedRecipients) . ' -> ' . print_r($lockedRecipients, true));
 		return $lockedRecipients;
 	}
-	 
+
 	public static function lockRecipient($mailId, $email){
 		global $wpdb;
 		$query = ' UPDATE ' . $wpdb->prefix . 'mailster_queued_mails SET'
 				. ' is_locked = \'1\','
 				. ' lock_id = lock_id+1,' // increment lock ID
-				. ' last_lock = NOW()'					
+				. ' last_lock = NOW()'
 				. ' WHERE mail_id=\'' . $mailId . '\''
 				. ' AND email= \'' . $wpdb->_real_escape($email) . '\'';
 		$wpdb->query( $query );
 	}
-	
-	public static function checkRecipientLock($mailId, $email, $lockId){		
+
+	public static function checkRecipientLock($mailId, $email, $lockId){
 		$recip = self::getRecipientInfo($mailId, $email);
 		if(($recip->is_locked > 0) && ($recip->lock_id == $lockId)){
 			return true;
 		}
 		return false;
 	}
-	
+
 	public static function getRecipientInfo($mailId, $email){
 		global $wpdb;
 		$query = 'SELECT * FROM ' . $wpdb->prefix . 'mailster_queued_mails'
 				. ' WHERE mail_id=\'' . $mailId . '\' '
 				. ' AND email=\'' . $wpdb->_real_escape($email) . '\'';
-		$recip = $wpdb->get_row( $query );		
+		$recip = $wpdb->get_row( $query );
 		return $recip;
 	}
-	
+
 	public static function getErrorCountOfMail($mailId){
 		global $wpdb;
 		$query = 'SELECT fwd_errors FROM  ' . $wpdb->prefix . 'mailster_mails'
 		. ' WHERE id = \'' . $mailId . '\'';
 		return $wpdb->get_var( $query );
 	}
-	
+
 	public static function getErrorCountOfQueueMail($mailId, $email){
 		global $wpdb;
 		$query = 'SELECT error_count FROM  ' . $wpdb->prefix . 'mailster_queued_mails'
@@ -658,14 +660,14 @@ class MstMailQueue
 		. ' LIMIT 1';
 		return  $wpdb->get_var( $query );
 	}
-	
+
 	public static function incrementError($mailId, $email, $maxSendAttempts){
         global $wpdb;
 		$log = MstFactory::getLogger();
 		$errorCount = self::getErrorCountOfQueueMail($mailId, $email);
-		$log->debug('Increment error count for ' . $mailId 
-					. ', before: ' . $errorCount 
-					. ' (maxSendAttempts: ' .  $maxSendAttempts . ')');	
+		$log->debug('Increment error count for ' . $mailId
+					. ', before: ' . $errorCount
+					. ' (maxSendAttempts: ' .  $maxSendAttempts . ')');
 		if(($errorCount + 1) < $maxSendAttempts){
 			// increment error and unlock message
 			$query = 'UPDATE ' . $wpdb->prefix . 'mailster_queued_mails'
@@ -681,28 +683,28 @@ class MstMailQueue
 				. ' WHERE id = \'' . $mailId . '\'';
 			$result = $wpdb->get_results( $query );
 			//$affRows = $db->getAffectedRows();
-			
+
 			$mailSendErrorCount = self::getErrorCountOfMail($mailId);
 			if($mailSendErrorCount >= $maxSendAttempts){
 				// ####### SAVE SEND EVENT  ########
 				$sendEvents = MstFactory::getSendEvents();
 				$recipInfoArr = array("email" => $email);
-				$remainingRecipCount = self::getNumberOfQueueEntriesForMail($mailId); 
+				$remainingRecipCount = self::getNumberOfQueueEntriesForMail($mailId);
 				$sendEvents->sendingAbortedDueErrors($mailId, $recipInfoArr, $mailSendErrorCount, $maxSendAttempts, $remainingRecipCount);
 				// #################################
 			}
-		}else{			
+		}else{
 			// ####### SAVE SEND EVENT  ########
 			$sendEvents = MstFactory::getSendEvents();
 			$recipInfoArr = array("email" => $email);
 			$mailSendErrorCount = self::getErrorCountOfMail($mailId);
 			$sendEvents->recipientQueueRemovalDueErrors($mailId, $recipInfoArr, $errorCount, $mailSendErrorCount, $maxSendAttempts);
 			// #################################
-			
+
 			self::removeMailFromQueue($mailId, $email);
 		}
-	}	
-	
+	}
+
 	public static function sendingComplete($mailId){
 		global $wpdb;
 		$log = MstFactory::getLogger();
@@ -714,7 +716,7 @@ class MstMailQueue
 			$query = 'UPDATE ' . $wpdb->prefix . 'mailster_mails'
 					. ' SET fwd_completed = \'1\','
 					. ' fwd_completed_timestamp = NOW( )'
-					. ' WHERE id = \'' . $mailId . '\'';	
+					. ' WHERE id = \'' . $mailId . '\'';
 		}elseif($mList->archive_mode == MstConsts::ARCHIVE_MODE_NO_CONTENT){
 			$log->debug('Set mail as sent, do not keep content for archive');
 			$attachUtils = MstFactory::getAttachmentsUtils();
@@ -725,75 +727,75 @@ class MstMailQueue
 					. ' body = null,'
 					. ' html = null,'
 					. ' no_content = \'1\''
-					. ' WHERE id = \'' . $mailId . '\'';	
+					. ' WHERE id = \'' . $mailId . '\'';
 		}
-		
+
 		$affRows = $wpdb->get_results( $query );
-		return $affRows;	
+		return $affRows;
 	}
-	
+
 	public static function getPendingMails() {
 		global $wpdb;
 		$query = ' SELECT m.*'
 				. ' FROM ' . $wpdb->prefix . 'mailster_mails m'
 				. ' WHERE m.list_id in ('
 					. ' SELECT id'
-					. ' FROM ' . $wpdb->prefix . 'mailster_lists' 
+					. ' FROM ' . $wpdb->prefix . 'mailster_lists'
 					. ' WHERE active =\'1\' )'
-				. ' AND m.fwd_completed =\'0\''				
+				. ' AND m.fwd_completed =\'0\''
 				. ' AND bounced_mail = \'0\''
 				. ' AND blocked_mail = \'0\''
-				. ' AND m.fwd_errors < (' 
+				. ' AND m.fwd_errors < ('
 					. ' SELECT max_send_attempts'
-					. ' FROM ' . $wpdb->prefix . 'mailster_lists l' 
+					. ' FROM ' . $wpdb->prefix . 'mailster_lists l'
 					. ' WHERE m.list_id = l.id LIMIT 1)'
 				. ' ORDER BY m.receive_timestamp';
-		
+
 		$mails = $wpdb->get_results( $query );
-		return $mails;	
+		return $mails;
 	}
-		
+
 	public static function getPendingMailsOfMailingList($listId) {
 		global $wpdb;
 		$query = ' SELECT m.*'
 				. ' FROM ' . $wpdb->prefix . 'mailster_mails m'
 				. ' WHERE m.list_id =\'' . $listId . '\''
-				. ' AND m.fwd_completed =\'0\''				
+				. ' AND m.fwd_completed =\'0\''
 				. ' AND bounced_mail = \'0\''
 				. ' AND blocked_mail = \'0\''
-				. ' AND m.fwd_errors < (' 
+				. ' AND m.fwd_errors < ('
 					. ' SELECT max_send_attempts'
-					. ' FROM ' . $wpdb->prefix . 'mailster_lists l' 
+					. ' FROM ' . $wpdb->prefix . 'mailster_lists l'
 					. ' WHERE m.list_id = l.id LIMIT 1)'
-				. ' ORDER BY m.receive_timestamp';		
-		
+				. ' ORDER BY m.receive_timestamp';
+
 		$mails = $wpdb->get_results( $query );
-		return $mails;	
+		return $mails;
 	}
-	
+
 	public static function getPendingDigests(){
 		global $wpdb;
 		$query = ' SELECT d.*'
 				. ' FROM ' . $wpdb->prefix . 'mailster_digests d'
-				. ' WHERE d.digest_freq > 0' // digest_freq = 0 means no digest (inactive digests)			
+				. ' WHERE d.digest_freq > 0' // digest_freq = 0 means no digest (inactive digests)
 				. ' AND d.next_send_date < NOW()'
-				. ' ORDER BY d.next_send_date';	
+				. ' ORDER BY d.next_send_date';
 		$digests = $wpdb->get_results( $query );
-		return $digests;	
+		return $digests;
 	}
-	
+
 	public static function getPendingDigestsOfMailingList($listId){
 		global $wpdb;
 		$query = ' SELECT d.*'
 				. ' FROM ' . $wpdb->prefix . 'mailster_digests d'
-				. ' WHERE d.digest_freq > 0' // digest_freq = 0 means no digest (inactive digests)		
+				. ' WHERE d.digest_freq > 0' // digest_freq = 0 means no digest (inactive digests)
 				. ' AND d.list_id =\'' . $listId . '\''
 				. ' AND d.next_send_date < NOW()'
-				. ' ORDER BY d.next_send_date';		
+				. ' ORDER BY d.next_send_date';
 		$digests = $wpdb->get_results( $query );
 		return $digests;
 	}
-	
+
 	function getMailQueueForDigest($digestId){
         global $wpdb;
 		$log = MstFactory::getLogger();
@@ -804,7 +806,7 @@ class MstMailQueue
 				. ' FROM ' . $wpdb->prefix . 'mailster_digest_queue dq'
 				. ' WHERE dq.digest_id =\'' . $digestId . '\''
 				. ' AND dq.digest_time <\'' . $digest->next_send_date . '\''
-				. ' ORDER BY dq.thread_id, dq.digest_time';	
+				. ' ORDER BY dq.thread_id, dq.digest_time';
 		global $wpdb;
 		$digests = $wpdb->get_results( $query );
 		$log->debug('getMailQueueForDigest query: '.$query);
@@ -812,11 +814,11 @@ class MstMailQueue
 		$log->debug(print_r($digests, true));
 		return $digests;
 	}
-	
+
 	public static function getAllPendingMails($limitedCols = false){
         global $wpdb;
 		if($limitedCols){
-			$query = 'SELECT m.mail_id, m.name, m.email, m.is_locked, ma.id, ma.subject';			
+			$query = 'SELECT m.mail_id, m.name, m.email, m.is_locked, ma.id, ma.subject';
 		}else{
 			$query = 'SELECT m.*, ma.*';
 		}
@@ -825,9 +827,9 @@ class MstMailQueue
 					. ' LEFT JOIN ' . $wpdb->prefix . 'mailster_mails ma ON (m.mail_id = ma.id)';
 		global $wpdb;
 		$mails = $wpdb->get_results( $query );
-		return $mails;	
+		return $mails;
 	}
-	
+
 	public static function getPendingMailsThatExceededMaxSendAttempts($listId=false){
         global $wpdb;
 		$query = ' SELECT m.*'
@@ -849,5 +851,5 @@ class MstMailQueue
 		$mails = $wpdb->get_results( $query );
 		return $mails;
 	}
-		
+
 }
