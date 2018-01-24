@@ -29,12 +29,13 @@ if($sid) {
 }
 
 if ($_GET['jack'] == "hello") {
+  # Convention is that the 2nd user is a hotel owner who is also a core user, but doesn't have to be
   $email = 'jwarner_ags@yahoocom2';
   if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     echo "$email is not valid";
   }
   # TODO - get emails from external input and make sure they are valid syntactically
-  $emails = array("warner.jack@gmail.com", "jwarner_ags@yahoo.com" );
+  $emails = array("jackwarner@me.com", "jwarner_ags@yahoo.com" );
   $group_id = $Group->getRelationshipGroup($emails);
   if (!empty($group_id)) {
     echo "Group id is $group_id - nothing to be done";
@@ -52,6 +53,7 @@ if ($_GET['jack'] == "hello") {
     $firstUserCore = 0;
     $secondUserId = -1;
     $secondUserCore = 0;
+    $secondUserNiceName = '';
     if (empty($firstUser)) {
       echo "need to create user $emails[0]";
       $user_options['name'] = $emails[0];
@@ -78,21 +80,112 @@ if ($_GET['jack'] == "hello") {
       $user_options['notes'] = 'created automatically from booking form';
       $secondUser = $UserTwo->saveData($user_options);
       $secondUserId = $UserTwo->getId();
+      $secondUserNiceName = $secondUserId;
     }
     else {
       echo "second user exists:";
       echo "<pre>";
       print_r($secondUser);
-      echo "id is $secondUser->id";
-      $secondUserId = $secondUser->id;
-      $secondUserCore = $secondUser->is_core_user;
-      echo "</pre>";
-    }
 
+      $secondUserId = $secondUser->id;
+      $secondUserNiceName = $secondUserId;
+      $secondUserCore = $secondUser->is_core_user;
+      if ($secondUserCore) {
+        $secondUserId = $secondUser->ID;
+        $secondUserNiceName = $secondUser->user_login;
+      }
+
+      echo "id is $secondUserId";
+      echo "</pre>";
+
+    }
+    //exit();
     $Group->emtpyUsers();
     // both users exist, add them to the group!
     $res = $Group->addUserById( $firstUserId, $firstUserCore );
     $res = $Group->addUserById( $secondUserId, $secondUserCore );
+
+    echo "list creation";
+    $options['name'] = "Hand-Picked Riviera ";
+    $options['list_mail'] = 'wpmailster@gmail.com';
+    $options['admin_mail'] = 'wpmailster@gmail.com';
+    $options['active'] = 1;
+    $options['front_archive_access'] = 0;
+    $options['server_inb_id'] = 3;
+    $options['mail_in_user'] = 'wpmailster@gmail.com';
+    $options['mail_in_pw'] = '4XtxJ39ZqCx7DkC97iyq';
+    $options['use_cms_mailer'] = 0;
+    $options['server_out_id'] = 4;
+    $options['mail_out_user'] = 'wpmailster@gmail.com';
+    $options['mail_out_pw'] = '4XtxJ39ZqCx7DkC97iyq';
+    $options['subject_prefix'] = "";
+    $options['custom_header_plain'] = "{name} ({date}):";
+    $options['custom_footer_plain'] = "";
+    $options['clean_up_subject'] = 1;
+    $options['mail_format_conv'] = 0;
+    $options['disable_mail_footer'] = 0;
+    $options['mail_format_altbody'] = 1;
+    $options['custom_header_html'] = "
+{name} ({date}):
+";
+    $options['custom_footer_html'] = "";
+    $options['copy_to_sender'] = 0;
+    $options['mail_size_limit'] = 0;
+    $options['filter_mails'] = 0;
+    $options['allow_bulk_precedence'] = 0;
+    $options['sending_public'] = 0;
+    $options['sending_recipients'] = 0;
+    $options['sending_admin'] = 1;
+    $options['sending_group'] = 1;
+    $options['sending_group_id'] = $Group->getId();
+    $options['addressing_mode'] = 0;
+    $options['bcc_count'] = 10;
+    $options['incl_orig_headers'] = 0;
+    $options['mail_from_mode'] = 2;
+    $options['name_from_mode'] = 0;
+    $options['reply_to_sender'] = 0;
+    $options['bounce_mail'] = '';
+    $options['bounce_mode'] = 0;
+    $options['max_send_attempts'] = 5;
+    $options['save_send_reports'] = 30;
+    $options['allow_subscribe'] = 0;
+    $options['public_registration'] = 0;
+    $options['subscribe_mode'] = 0;
+    $options['welcome_msg'] = 0;
+    $options['welcome_msg_admin'] = 0;
+    $options['allow_unsubscribe'] = 1;
+    $options['unsubscribe_mode'] = 0;
+    $options['goodbye_msg'] = 0;
+    $options['goodbye_msg_admin'] = 0;
+    $options['allow_digests'] = 0;
+    $options['archive_mode'] = 0;
+    $options['notify_not_fwd_sender'] = 1;
+
+    $List = new MailsterModelList();
+    $saved = $List->saveData($options);
+    if ( $saved == null ) { //unsuccessful save
+      #$message = $this->wpmst_view_message("updated", __("Something went wrong, data not saved. Please try again", 'wpmst-mailster'));
+      echo "Failed!";
+    } else {
+      #$message = $this->wpmst_view_message("updated", __("Mailing list saved successfully.", 'wpmst-mailster'));
+      $lid = $saved;
+      echo "Saved $saved";
+
+      $res = $List->addUserById( intval($secondUserId), intval($secondUserCore) );
+      $res = $List->addUserById( intval($firstUserId), intval($firstUserCore) );
+//      if ( $res && !$newUser->isRecip && $mList && $mList->welcome_msg > 0 && $mList->welcome_msg_admin > 0 ) {
+//        $subscrUtils = MstFactory::getSubscribeUtils();
+//        $subscrUtils->sendWelcomeOrGoodbyeSubscriberMsg( $userRow->name, $userRow->email, intval( $lid ), MstConsts::SUB_TYPE_SUBSCRIBE );
+//        $log->debug( 'sent welcome message to user_id: ' . $userRow->name . ', ' . $userRow->email );
+//      }
+
+    }
+
+
+
+  echo "<pre>";
+  print_r($options);
+  echo "</pre>";
 
   }
   exit();
