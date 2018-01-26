@@ -609,4 +609,47 @@ class MstMailingListUtils
 
   }
 
+  public function isUserSubscribedToListWithSharedInbox($listEmail, $userEmail) {
+    $log = MstFactory::getLogger();
+    global $wpdb;
+    $query = "SELECT l.id AS list_id, u.email AS email FROM " . $wpdb->prefix . "mailster_lists l "
+      . " LEFT JOIN " . $wpdb->prefix . "mailster_list_members m ON l.id = m.list_id "
+      . " LEFT JOIN " . $wpdb->prefix . "mailster_users u ON u.id = m.user_id "
+      . " WHERE l.list_mail = '". $listEmail . "' AND u.email = '" . $userEmail . "'"
+      . " AND l.active = 1";
+
+    $log->debug('query is ' . $query);
+    $result = $wpdb->get_results($query);
+    if (count($result) > 0) {
+      $log->debug($userEmail . ' is subscribed to list id ' . $result[0]->list_id);
+      return true;
+    }
+
+    $log->debug($userEmail . ' is not subscribed to any mailing list');
+    return false;
+  }
+
+  /**
+   * Assumes that the subject matches the mailing list name
+   * @param $listId
+   * @param $ownerEmail
+   * @param $mailSubject
+   */
+  public function isOwnerReplyingToCurrentThread($listId, $ownerEmail, $mailSubject) {
+    $log = MstFactory::getLogger();
+    global $wpdb;
+    $query = "SELECT l.id AS list_id FROM " . $wpdb->prefix . "mailster_lists l "
+      . " LEFT JOIN " . $wpdb->prefix . "mailster_list_members m ON l.id = m.list_id "
+      . " LEFT JOIN " . $wpdb->prefix . "users u ON u.id = m.user_id "
+      . " WHERE l.id = '". $listId . "' AND u.user_email = '" . $ownerEmail . "'"
+      . " AND l.name = '" . $mailSubject . "' AND l.active = 1";
+    $log->debug('isOwnerReplyingToCurrentThread query is ' . $query);
+    $result = $wpdb->get_results($query);
+    if (count($result) > 0) {
+      $log->debug($ownerEmail . ' is responding to mail subject matching list name ' . $mailSubject);
+      return true;
+    }
+    return false;
+  }
+
 }

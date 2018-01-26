@@ -156,6 +156,7 @@ class MstMailingListMailbox
   {
     $log = MstFactory::getLogger();
     $mailingListUtils = MstFactory::getMailingListUtils();
+    $mailUtils = MstFactory::getMailUtils();
     $timeout = false;
     $imapcheck = imap_check($this->mBox);
     $nMsgs = $imapcheck->Nmsgs; // number of messages in mailbox
@@ -182,15 +183,19 @@ class MstMailingListMailbox
         }
         $mail = $this->getMessage($nr);
         $mail = $this->preprocessMessage($mail);
-        if ($this->storeMessageAndAttachments($mail)) {
-          $log->debug('Deleting mail from mailbox', MstConsts::LOGENTRY_MAIL_RETRIEVE);
-          $res = $this->markOrDeleteOrMoveMail($nr, false, '', true, false, '');
-          $log->info('Mail removed from mailbox: ' . ($res ? 'Yes' : 'No'), MstConsts::LOGENTRY_MAIL_RETRIEVE);
-          $mailingListUtils->setLastMailRetrieved($this->mList->id);
-        } else {
-          $log->error('Could not store mail: ' . print_r($mail, true), MstConsts::LOGENTRY_MAIL_RETRIEVE);
+        if ($mail === false) {
+          $log->info('skipping mail for later processing');
         }
-        $nrRetrievedMessages++;
+        else {
+          if ($this->storeMessageAndAttachments($mail)) {
+            $log->info('Deleting mail from mailbox', MstConsts::LOGENTRY_MAIL_RETRIEVE);
+            $res = $this->markOrDeleteOrMoveMail($nr, false, '', true, false, '');
+            $mailingListUtils->setLastMailRetrieved($this->mList->id);
+          } else {
+            $log->error('Could not store mail: ' . print_r($mail, true), MstConsts::LOGENTRY_MAIL_RETRIEVE);
+          }
+          $nrRetrievedMessages++;
+        }
       } else {
         $log->info('Timeout while retrieving mails...', MstConsts::LOGENTRY_MAIL_RETRIEVE);
         $timeout = true;
@@ -396,6 +401,7 @@ class MstMailingListMailbox
     $log = MstFactory::getLogger();
     $mstUtils = MstFactory::getUtils();
     $mailUtils = MstFactory::getMailUtils();
+    $mailListUtils = MstFactory::getMailingListUtils();
     $subscrUtils = MstFactory::getSubscribeUtils();
     $threadUtils = MstFactory::getThreadUtils();
 
@@ -404,6 +410,32 @@ class MstMailingListMailbox
     $mail->sendUnauthSenderNotification = true; // default
     $mail->isBouncedMail = $mailUtils->isBouncedMail($mail->rawHeader, $allowPrecedenceBulkMessages);
     $mail->hasUnauthSender = !($this->isAllowed2Send($mail->from_email));
+    // The case where the customer is not in the current mailing list but is in another active mailing list
+    // Meaning he/she should be able to communicate, but not in this list
+    // Just skip right over the email
+    if ($mail->hasUnauthSender) {
+      $log->info($mail->from_email . " not allowed to send in " . $this->mList->id . ", checking others");
+      $log->info('mail list email is ' . $this->mList->list_mail);
+      $existsInSharedInbox = $mailListUtils->isUserSubscribedToListWithSharedInbox($this->mList->list_mail, $mail->from_email);
+      if ($existsInSharedInbox) {
+        $log->info('user ' . $mail->from_email . ' exists in another active list, leave email for later processing');
+        return false;
+      }
+      else {
+        $log->info('user ' . $mail->from_email . ' unknown to this inbox, filtering out');
+      }
+    }
+    // If user is valid in mailing list, it could be the owner. If so, we have to make sure the owner is replying
+    // to the right user, by the 'To' Name of the mail message, which by convention matches only a combination of
+    // Property-Customer combination
+    else {
+      // all owners are core users and they are always authorized senders for their properties
+      $isMatchingList = $mailListUtils->isOwnerReplyingToCurrentThread($this->mList->id, $mail->from_email, $mail->to_name);
+      if (!$isMatchingList) {
+        $log->info('owner ' . $mail->from_email . ' trying to send to ' . $mail->to_name . ' not matching ' . $this->mList->name);
+        return false;
+      }
+    }
 
     $log->debug('Unauth. Sender: ' . ($mail->hasUnauthSender ? 'Yes' : 'No')
       . ', is bounced mail: ' . ($mail->isBouncedMail ? 'Yes' : 'No'), MstConsts::LOGENTRY_MAIL_RETRIEVE);

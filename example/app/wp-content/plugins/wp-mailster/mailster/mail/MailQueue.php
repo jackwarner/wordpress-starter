@@ -45,6 +45,20 @@ class MstMailQueue
     $result = false;
     $wpdb->show_errors();
 
+    // Purge body of email, phone, and web links
+//    $x = 'Hi, my phone is +44 5555555 and email is jack@jack.com';
+//    $x = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}/i','(phone hidden)',$x); // extract email
+//    $x = preg_replace('/(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?/','(email hidden)',$x); // extract phonenumber
+    //echo $x; // Hi, my phone is (phone hidden) and email is (email hidden)
+    $purgedBody = $mail->body;
+    $purgedBody = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}/i', '(email hidden)', $purgedBody);
+    $purgedBody = preg_replace('/(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?/','(phone hidden)',$purgedBody);
+    $purgedBody = preg_replace("/[a-zA-Z]*[:\/\/]*[A-Za-z0-9\-_]+\.+[A-Za-z0-9\.\/%&=\?\-_]+/i", '(link hidden)', $purgedBody);
+
+    $purgedHtml = $mail->html;
+    $purgedHtml = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}/i', '(email hidden)', $purgedHtml);
+    $purgedHtml = preg_replace('/(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?/','(phone hidden)',$purgedHtml);
+    $purgedHtml = preg_replace("/[a-zA-Z]*[:\/\/]*[A-Za-z0-9\-_]+\.+[A-Za-z0-9\.\/%&=\?\-_]+/i", '(link hidden)', $purgedHtml);
 
     $query = ' INSERT'
       . ' INTO ' . $wpdb->prefix . 'mailster_mails'
@@ -87,8 +101,8 @@ class MstMailQueue
       . ' \'' . $wpdb->_real_escape($mail->orig_to_recips) . '\','
       . ' \'' . $wpdb->_real_escape($mail->orig_cc_recips) . '\','
       . ' \'' . $wpdb->_real_escape($mail->subject) . '\','
-      . ' \'' . $wpdb->_real_escape($mail->body) . '\',' # clean stuff out
-      . ' \'' . $wpdb->_real_escape($mail->html) . '\','
+      . ' \'' . $wpdb->_real_escape($purgedBody) . '\',' # clean stuff out
+      . ' \'' . $wpdb->_real_escape($purgedHtml) . '\','
       . ' \'' . $wpdb->_real_escape($mail->has_attachments) . '\','
       . ' \'0\', \'0\','
       . ' \'0\', \'0\','
