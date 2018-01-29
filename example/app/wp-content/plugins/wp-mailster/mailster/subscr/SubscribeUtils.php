@@ -71,8 +71,8 @@ class MstSubscribeUtils
     }
     return $success;
   }
-	
-  public function sendWelcomeOrGoodbyeSubscriberMsg($name, $email, $listId, $subType)
+
+  public function sendWelcomeOrGoodbyeSubscriberMsg($name, $email, $listId, $subType, $isOwner, $message = '')
   {
     $log = MstFactory::getLogger();
     $mailingListUtils = MstFactory::getMailingListUtils();
@@ -91,7 +91,10 @@ class MstSubscribeUtils
       case MstConsts::SUB_TYPE_SUBSCRIBE:
         $log->debug('Build welcome email for subscribe');
         $subject = sprintf(__('Welcome to %s', "wpmst-mailster"), $mList->name);
-        $desc = sprintf(__('You are now subscribed to %s with the email address %s', "wpmst-mailster"), $mList->name, $email);
+        $desc = sprintf(__('Your inquiry has been delivered to the owner of %s:', "wpmst-mailster"), $mList->name);
+        if ($isOwner) {
+          $desc = sprintf(__('You have a new inquiry about %s:', "wpmst-mailster"), $mList->name);
+        }
         if ($mList->welcome_msg <= 0) {
           $log->debug('Sending of welcome email is disabled, return without sending');
           return;
@@ -108,6 +111,15 @@ class MstSubscribeUtils
         break;
     }
 
+    // Prepare and purge message
+    $message = stripslashes($message);
+    $message = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}/i', '(email hidden)', $message);
+    $message = preg_replace('/(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?/','(phone hidden)',$message);
+    $message = preg_replace("/[a-zA-Z]*[:\/\/]*[A-Za-z0-9\-_]+\.+[A-Za-z0-9\.\/%&=\?\-_]+/i", '(link hidden)', $message);
+
+    $instructions = 'Reply to this email address as you normally would to exchange information about booking plans and property details. '
+    . ' Your personal information is kept private.';
+
     $body .= "<html><head></head>";
     $body .= "<body>";
     $body .= "<p>";
@@ -116,6 +128,12 @@ class MstSubscribeUtils
     $body .= "<p>";
     $body .= $desc;
     $body .= "</p>";
+    $body .= "<p>";
+    $body .= $message;
+    $body .= "</p>";
+    $body .= "<p>";
+    $body .= $instructions;
+    $body .= "</p>";
     $body .= "</body>";
     $body .= "</html>";
 
@@ -123,13 +141,18 @@ class MstSubscribeUtils
     $altBody .= "\n\n";
     $altBody .= $desc;
     $altBody .= "\n\n";
+    $altBody .= $message;
+    $altBody .= "\n\n";
+    $altBody .= "\n\n";
+    $altBody .= $instructions;
+    $altBody .= "\n\n";
 
     $log->debug('Email text: ' . $altBody);
 
     $mailSender = MstFactory::getMailSender();
     $mail = $mailSender->getListMailTmpl($mList);
 
-    $replyTo = array($mList->admin_mail, '');
+    $replyTo = array($mList->admin_mail, $mList->name);
     try {
       $mail->addReplyTo($replyTo[0], $replyTo[1]);
     } catch (Exception $e) {

@@ -64,7 +64,7 @@ class MstMailingListUtils
     global $wpdb;
     $query = ' SELECT id'
       . ' FROM ' . $wpdb->prefix . 'mailster_lists'
-      . ' WHERE lower(name) = ' . $listName;
+      . " WHERE lower(name) = '" . $listName . "'";
     $lists = $wpdb->get_results($query);
     if ($lists && count($lists) > 0) {
       $list = $lists[0];
@@ -652,4 +652,20 @@ class MstMailingListUtils
     return false;
   }
 
+  public function isTravelerReplyingToCurrentThread($listId, $travelerEmail, $mailSubject) {
+    $log = MstFactory::getLogger();
+    global $wpdb;
+    $query = "SELECT l.id AS list_id FROM " . $wpdb->prefix . "mailster_lists l "
+      . " LEFT JOIN " . $wpdb->prefix . "mailster_list_members m ON l.id = m.list_id "
+      . " LEFT JOIN " . $wpdb->prefix . "mailster_users u ON u.id = m.user_id "
+      . " WHERE l.id = '". $listId . "' AND u.email = '" . $travelerEmail . "'"
+      . " AND l.name = '" . $mailSubject . "' AND l.active = 1";
+    $log->debug('isTravelerReplyingToCurrentThread query is ' . $query);
+    $result = $wpdb->get_results($query);
+    if (count($result) > 0) {
+      $log->debug($travelerEmail . ' is responding to mail subject matching list name ' . $mailSubject);
+      return true;
+    }
+    return false;
+  }
 }

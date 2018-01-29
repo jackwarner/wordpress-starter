@@ -2131,135 +2131,114 @@ function wpmst_subscribe_callback()
 }
 
 
-function hpr_html_form_code($propertyId)
+function hpr_html_form_code($propertyId, $ownerUserId)
 {
-  echo "Property id is $propertyId<br>";
   echo '<form action="' . esc_url($_SERVER['REQUEST_URI']) . '" method="post">';
   echo '<p>';
   echo 'Your Name (required) <br/>';
   echo '<input type="text" name="cf-name" pattern="[a-zA-Z0-9 ]+" value="' . (isset($_POST["cf-name"]) ? esc_attr($_POST["cf-name"]) : '') . '" size="40" />';
   echo '</p>';
   echo '<p>';
-  echo 'Your JACK Email (required) <br/>';
+  echo '<input type="hidden" name="cf-property-id" value="' . $propertyId . '" />';
+  //echo '<input type="hidden" name="cf-owner-email" value="' . $ownerEmail . '" />';
+  echo '<input type="hidden" name="cf-owner-id" value="' . $ownerUserId . '" />';
+  echo 'Your Email (required) <br/>';
   echo '<input type="email" name="cf-email" value="' . (isset($_POST["cf-email"]) ? esc_attr($_POST["cf-email"]) : '') . '" size="40" />';
   echo '</p>';
   echo '<p>';
-//  echo 'Subject (required) <br/>';
-//  echo '<input type="text" name="cf-subject" pattern="[a-zA-Z ]+" value="' . ( isset( $_POST["cf-subject"] ) ? esc_attr( $_POST["cf-subject"] ) : '' ) . '" size="40" />';
-//  echo '</p>';
-//  echo '<p>';
   echo 'Your Message (required) <br/>';
   echo '<textarea rows="10" cols="35" name="cf-message">' . (isset($_POST["cf-message"]) ? esc_attr($_POST["cf-message"]) : '') . '</textarea>';
   echo '</p>';
   echo '<p><input type="submit" name="cf-submitted" value="Send"></p>';
   echo '</form>';
 }
+
 require_once(plugin_dir_path(__FILE__) . "/models/MailsterModelGroup.php");
 require_once(plugin_dir_path(__FILE__) . "/models/MailsterModelUser.php");
 
 function hpr_deliver_mail()
 {
-
+  $mailSent = false;
   // if the submit button is clicked, send the email
   if (isset($_POST['cf-submitted'])) {
+
+    $serverPasswords['wpmailster@gmail.com'] = '4XtxJ39ZqCx7DkC97iyq';
+    $serverPasswords['hpr-test-01@antibes-rental.com'] = 'u2483pQZYJ7Na6wVPFUk';
 
     // sanitize form values
     $name = sanitize_text_field($_POST["cf-name"]);
     $email = sanitize_email($_POST["cf-email"]);
-    $subject = sanitize_text_field($_POST["cf-subject"]);
     $message = esc_textarea($_POST["cf-message"]);
 
-    $propertyName = "HPR 01 - ";
-    $propertyOwnerEmail = trim(strtolower("jwarner_ags@yahoo.com"));
+    $propertyName = sanitize_text_field($_POST["cf-property-id"]);
+    $propertyOwnerId = sanitize_text_field($_POST["cf-owner-id"]);
+    $listEmail = get_user_meta( $propertyOwnerId, 'mailsteremail', true );
+    $owner = get_user_by('id', $propertyOwnerId);
+    if (empty($owner) || empty($listEmail)) {
+      echo "Owner with id $propertyOwnerId has not been configured in the system.";
+      return false;
+    }
+    $propertyOwnerEmail = $owner->user_email;
+    $properOwnerName = $owner->first_name;
 
     $Group = new MailsterModelGroup();
-
-    //if ($_GET['jack'] == "hello") {
+    $mailingListName = '';
     # Convention is that the 2nd user is a hotel owner who is also a core user, but doesn't have to be
-    //$email = 'jwarner_ags@yahoocom2';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
       echo "$email is not valid.";
+      return false;
     } else {
-      # TODO - get emails from external input and make sure they are valid syntactically
       $emails = array($email, $propertyOwnerEmail);
-      $group_id = $Group->getRelationshipGroup($emails);
-      if (!empty($group_id)) {
-        echo "Group id is $group_id - nothing to be done";
+
+      // Does user already exist?
+      $UserOne = new MailsterModelUser();
+      $firstUser = $UserOne->isDuplicateEntry($email);
+      $firstUserId = -1;
+      $firstUserCore = 0;
+      if (empty($firstUser)) {
+        $user_options['name'] = $name;
+        $user_options['email'] = $email;
+        $user_options['notes'] = 'created automatically from booking form';
+        $firstUser = $UserOne->saveData($user_options);
+        $firstUserId = $UserOne->getId();
       } else {
-        echo "we have work to do!";
+        $firstUserId = $firstUser->id;
+        $firstUserCore = $firstUser->is_core_user;
+      }
+      $mailingListName = $propertyName . "-" . $firstUserId;
+      $listUtils = MstFactory::getMailingListUtils();
+      // if the user already exists, it's possible that the combination of user/owner/property already exists
+      // check for that:
+      $mailingList = $listUtils->getMailingListByName($mailingListName);
+      if (!empty($mailingList)) {
+        //echo "List exists $mailingListName - nothing to be done";
+        $message = "$name writes: " . $message;
+        $subscrUtils = MstFactory::getSubscribeUtils();
+        $subscrUtils->sendWelcomeOrGoodbyeSubscriberMsg( $properOwnerName, $propertyOwnerEmail, intval( $mailingList->id ), MstConsts::SUB_TYPE_SUBSCRIBE, true, $message );
+        return true;
+      }
+      // mailing list doesn't exist
+      else {
         $group_options['name'] = implode('+', $emails);
         $Group->saveData($group_options);
-        $sid = $Group->getId();
-        echo "Yay, group is $sid";
         # Now let's check on users
-        $UserOne = new MailsterModelUser();
-        $firstUser = $UserOne->isDuplicateEntry($emails[0]);
-        $firstUserId = -1;
-        $firstUserCore = 0;
-        $secondUserId = -1;
-        $secondUserCore = 0;
-        $secondUserNiceName = '';
-        if (empty($firstUser)) {
-          echo "need to create user $emails[0]";
-          $user_options['name'] = $emails[0];
-          $user_options['email'] = $emails[0];
-          $user_options['notes'] = 'created automatically from booking form';
-          $firstUser = $UserOne->saveData($user_options);
-          $firstUserId = $UserOne->getId();
-        } else {
-          echo "first user exists:";
-          echo "<pre>";
-          print_r($firstUser);
-          echo "id is $firstUser->id";
-          $firstUserId = $firstUser->id;
-          $firstUserCore = $firstUser->is_core_user;
-          echo "</pre>";
-        }
-        $UserTwo = new MailsterModelUser();
-        $secondUser = $UserTwo->isDuplicateEntry($emails[1]);
-        if (empty($secondUser)) {
-          echo "need to create user $emails[1]";
-          $user_options['name'] = $emails[1];
-          $user_options['email'] = $emails[1];
-          $user_options['notes'] = 'created automatically from booking form';
-          $secondUser = $UserTwo->saveData($user_options);
-          $secondUserId = $UserTwo->getId();
-          $secondUserNiceName = $secondUserId;
-        } else {
-          echo "second user exists:";
-          echo "<pre>";
-          print_r($secondUser);
-
-          $secondUserId = $secondUser->id;
-          $secondUserNiceName = $secondUserId;
-          $secondUserCore = $secondUser->is_core_user;
-          if ($secondUserCore) {
-            $secondUserId = $secondUser->ID;
-            $secondUserNiceName = $secondUser->user_login;
-          }
-
-          echo "id is $secondUserId";
-          echo "</pre>";
-
-        }
         $Group->emtpyUsers();
         // both users exist, add them to the group!
         $res = $Group->addUserById($firstUserId, $firstUserCore);
-        $res = $Group->addUserById($secondUserId, $secondUserCore);
+        $res = $Group->addUserById($propertyOwnerId, 1);
 
-        echo "list creation";
-        $options['name'] = "Hand-Picked Riviera ";
-        $options['list_mail'] = 'wpmailster@gmail.com';
-        $options['admin_mail'] = 'wpmailster@gmail.com';
+        $options['name'] = $mailingListName;
+        $options['list_mail'] = str_replace('antibes-rental.com', 'handpickedriviera.com', $listEmail);
+        $options['admin_mail'] = str_replace('antibes-rental.com', 'handpickedriviera.com', $listEmail);
         $options['active'] = 1;
         $options['front_archive_access'] = 0;
         $options['server_inb_id'] = 3;
-        $options['mail_in_user'] = 'wpmailster@gmail.com';
-        $options['mail_in_pw'] = '4XtxJ39ZqCx7DkC97iyq';
+        $options['mail_in_user'] = $listEmail;
+        $options['mail_in_pw'] = $serverPasswords[$listEmail];
         $options['use_cms_mailer'] = 0;
         $options['server_out_id'] = 4;
-        $options['mail_out_user'] = 'wpmailster@gmail.com';
-        $options['mail_out_pw'] = '4XtxJ39ZqCx7DkC97iyq';
+        $options['mail_out_user'] = $listEmail;
+        $options['mail_out_pw'] = $serverPasswords[$listEmail];
         $options['subject_prefix'] = "";
         $options['custom_header_plain'] = "{name} ({date}):";
         $options['custom_footer_plain'] = "";
@@ -2284,7 +2263,7 @@ function hpr_deliver_mail()
         $options['bcc_count'] = 10;
         $options['incl_orig_headers'] = 0;
         $options['mail_from_mode'] = 2;
-        $options['name_from_mode'] = 0;
+        $options['name_from_mode'] = 2;
         $options['reply_to_sender'] = 0;
         $options['bounce_mail'] = '';
         $options['bounce_mode'] = 0;
@@ -2293,7 +2272,7 @@ function hpr_deliver_mail()
         $options['allow_subscribe'] = 0;
         $options['public_registration'] = 0;
         $options['subscribe_mode'] = 0;
-        $options['welcome_msg'] = 0;
+        $options['welcome_msg'] = 1;
         $options['welcome_msg_admin'] = 0;
         $options['allow_unsubscribe'] = 1;
         $options['unsubscribe_mode'] = 0;
@@ -2306,31 +2285,22 @@ function hpr_deliver_mail()
         $List = new MailsterModelList();
         $saved = $List->saveData($options);
         if ($saved == null) { //unsuccessful save
-          #$message = $this->wpmst_view_message("updated", __("Something went wrong, data not saved. Please try again", 'wpmst-mailster'));
-          echo "Failed!";
+          echo "There was a problem sending your inquiry. Please try again later.";
         } else {
-          #$message = $this->wpmst_view_message("updated", __("Mailing list saved successfully.", 'wpmst-mailster'));
           $lid = $saved;
-          echo "Saved $saved";
-
-          $res = $List->addUserById(intval($secondUserId), intval($secondUserCore));
+          $res = $List->addUserById(intval($propertyOwnerId), 1);
           $res = $List->addUserById(intval($firstUserId), intval($firstUserCore));
-//      if ( $res && !$newUser->isRecip && $mList && $mList->welcome_msg > 0 && $mList->welcome_msg_admin > 0 ) {
-//        $subscrUtils = MstFactory::getSubscribeUtils();
-//        $subscrUtils->sendWelcomeOrGoodbyeSubscriberMsg( $userRow->name, $userRow->email, intval( $lid ), MstConsts::SUB_TYPE_SUBSCRIBE );
-//        $log->debug( 'sent welcome message to user_id: ' . $userRow->name . ', ' . $userRow->email );
-//      }
+          $subscrUtils = MstFactory::getSubscribeUtils();
+          $subscrUtils->sendWelcomeOrGoodbyeSubscriberMsg( $name, $email, intval( $lid ), MstConsts::SUB_TYPE_SUBSCRIBE, false, $message );
+          $message = "$name writes: " . $message;
 
+          $subscrUtils->sendWelcomeOrGoodbyeSubscriberMsg( $properOwnerName, $propertyOwnerEmail, intval( $lid ), MstConsts::SUB_TYPE_SUBSCRIBE, true, $message );
+          $mailSent = true;
         }
-
-
-        echo "<pre>";
-        print_r($options);
-        echo "</pre>";
-
       }
     }
   }
+  return $mailSent;
 }
 
 function hpr_cf_shortcode($atts)
@@ -2338,11 +2308,16 @@ function hpr_cf_shortcode($atts)
   $atts = shortcode_atts(
     array(
       'propertyid' => '-1',
+      'ownerid' => '-1'
     ), $atts, 'sitepoint_contact_form' );
 
   ob_start();
-  hpr_deliver_mail();
-  hpr_html_form_code($atts['propertyid']);
+  if (!hpr_deliver_mail()) {
+    hpr_html_form_code($atts['propertyid'], $atts['ownerid']);
+  }
+  else {
+    echo "Thank you. Your inquiry has been submitted. You should expect to hear from a property manager shortly.";
+  }
 
   return ob_get_clean();
 }

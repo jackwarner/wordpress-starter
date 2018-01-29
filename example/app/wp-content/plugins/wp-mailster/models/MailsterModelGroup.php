@@ -235,17 +235,16 @@ class MailsterModelGroup extends MailsterModel
         $email_addresses[] = "'" . $email . "'";
       }
       $email_addresses_for_sql = implode(',', $email_addresses);
-      $query = 'SELECT COUNT(*) my_count, gu.group_id '
+      $query = 'SELECT COUNT(*) my_count, gu.group_id, lg.list_id '
         . ' FROM ' . $wpdb->prefix . 'mailster_users u '
         . ' LEFT JOIN ' . $wpdb->prefix . 'mailster_group_users gu on u.id = gu.user_id '
+        . ' LEFT JOIN ' . $wpdb->prefix . 'mailster_list_groups lg on gu.group_id = lg.group_id '
         . ' WHERE u.email in ('.$email_addresses_for_sql.')';
       $lists = $this->_getList($query, 0, 0);
-      echo  "<pre>";
-      print_r($lists);
-      echo "</pre>";
       if (count($lists) > 0) {
         if ($lists[0]->my_count >= 2) {
-          return $lists[0]->group_id;
+          return array('group_id' => $lists[0]->group_id,
+                       'list_id' => $lists[0]->list_id);
         }
         else {
           return null;

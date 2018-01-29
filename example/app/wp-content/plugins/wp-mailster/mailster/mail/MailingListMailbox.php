@@ -182,9 +182,17 @@ class MstMailingListMailbox
           continue;
         }
         $mail = $this->getMessage($nr);
+        $mailingListToName = $mail->to_name;
         $mail = $this->preprocessMessage($mail);
         if ($mail === false) {
-          $log->info('skipping mail for later processing');
+          $log->info('mail is false for ' . $mailingListToName);
+          if (empty($mailingListUtils->getMailingListByName($mailingListToName))) {
+            $log->debug('Unknown list ' . $mailingListToName . '- deleting message');
+            $res = $this->markOrDeleteOrMoveMail($nr, false, '', true, false, '');
+          }
+          else {
+            $log->debug('skipping mail for later processing');
+          }
         }
         else {
           if ($this->storeMessageAndAttachments($mail)) {
@@ -410,6 +418,7 @@ class MstMailingListMailbox
     $mail->sendUnauthSenderNotification = true; // default
     $mail->isBouncedMail = $mailUtils->isBouncedMail($mail->rawHeader, $allowPrecedenceBulkMessages);
     $mail->hasUnauthSender = !($this->isAllowed2Send($mail->from_email));
+    $senderInfo = $subscrUtils->getUserByEmail($mail->from_email, true);
     // The case where the customer is not in the current mailing list but is in another active mailing list
     // Meaning he/she should be able to communicate, but not in this list
     // Just skip right over the email
@@ -430,10 +439,20 @@ class MstMailingListMailbox
     // Property-Customer combination
     else {
       // all owners are core users and they are always authorized senders for their properties
-      $isMatchingList = $mailListUtils->isOwnerReplyingToCurrentThread($this->mList->id, $mail->from_email, $mail->to_name);
-      if (!$isMatchingList) {
-        $log->info('owner ' . $mail->from_email . ' trying to send to ' . $mail->to_name . ' not matching ' . $this->mList->name);
-        return false;
+      // if not core user, this is coming from an already authorized customer
+      if ($senderInfo->is_core_user) {
+        $isMatchingList = $mailListUtils->isOwnerReplyingToCurrentThread($this->mList->id, $mail->from_email, $mail->to_name);
+        if (!$isMatchingList) {
+          $log->debug('owner ' . $mail->from_email . ' trying to send to ' . $mail->to_name . ' not matching ' . $this->mList->name);
+          return false;
+        }
+      }
+      else {
+        $isMatchingList = $mailListUtils->isTravelerReplyingToCurrentThread($this->mList->id, $mail->from_email, $mail->to_name);
+        if (!$isMatchingList) {
+          $log->debug('traveler ' . $mail->from_email . ' trying to send to ' . $mail->to_name . ' not matching ' . $this->mList->name);
+          return false;
+        }
       }
     }
 
@@ -478,7 +497,7 @@ class MstMailingListMailbox
 
     $mail->sender_user_id = 0;
     $mail->sender_is_core_user = 0;
-    $senderInfo = $subscrUtils->getUserByEmail($mail->from_email, true);
+
     if ($senderInfo && $senderInfo->user_found) {
       $mail->sender_user_id = $senderInfo->user_id;
       $mail->sender_is_core_user = $senderInfo->is_core_user;
